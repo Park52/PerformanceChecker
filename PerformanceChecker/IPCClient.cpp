@@ -7,7 +7,8 @@ IPC::IPCClient::IPCClient()
 	m_hMemory(NULL),
 	m_hServerSendEvent(NULL),
 #endif
-	m_pBuffer(nullptr)
+	m_pBuffer(nullptr),
+	m_bStop(false)
 {
 }
 
@@ -95,7 +96,7 @@ void IPC::IPCClient::finalize()
 #ifdef _WIN32
 	if (NULL != m_hServerSendEvent)
 	{
-		ResetEvent(m_hServerSendEvent);
+		SetEvent(m_hServerSendEvent);
 		CloseHandle(m_hServerSendEvent);
 		m_hServerSendEvent = NULL;
 	}
@@ -116,32 +117,35 @@ void IPC::IPCClient::finalize()
 
 bool IPC::IPCClient::read(std::string & msg)
 {
-	size_t* size = (size_t*)m_pBuffer;
-	if (*size < 1)
+	while (::WaitForSingleObject(m_hServerSendEvent, INFINITE))
 	{
-		std::cerr << "Read Failed" << std::endl;
-		return false;
+		size_t* size = (size_t*)m_pBuffer;
+		if (*size < 1)
+		{
+			std::cerr << "Read Failed" << std::endl;
+			return false;
+		}
+		m_pBuffer = m_pBuffer + sizeof(size_t);
+
+		char* buffer = new char[*size];
+		if (nullptr == buffer)
+		{
+			std::cerr << "Memory Allocation Failed." << std::endl;
+			return false;
+		}
+
+		memcpy(buffer, m_pBuffer, *size);
+		msg = std::string(buffer);
+		m_pBuffer = m_pBuffer + *size;
+
+		if (nullptr != buffer)
+		{
+			delete[] buffer;
+			buffer = nullptr;
+		}
+
+		std::cout << "Received Message: " << msg.c_str() << std::endl;
 	}
-	m_pBuffer = m_pBuffer + sizeof(size_t);
-
-	char* buffer = new char[*size];
-	if (nullptr == buffer)
-	{
-		std::cerr << "Memory Allocation Failed." << std::endl;
-		return false;
-	}
-
-	memcpy(buffer, m_pBuffer, *size);
-	msg = std::string(buffer);
-	m_pBuffer = m_pBuffer + *size;
-
-	if (nullptr != buffer)
-	{
-		delete[] buffer;
-		buffer = nullptr;
-	}
-
-	std::cout << "Received Message: " << msg.c_str() << std::endl;
 	return true;
 }
 

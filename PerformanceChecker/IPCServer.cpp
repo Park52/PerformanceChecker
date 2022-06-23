@@ -7,7 +7,8 @@ IPC::IPCServer::IPCServer()
 	m_hMemory(NULL),
 	m_hClientSendEvent(NULL),
 #endif
-	m_pBuffer(nullptr)
+	m_pBuffer(nullptr),
+	m_bStop(false)
 {
 
 }
@@ -96,7 +97,7 @@ void IPC::IPCServer::finalize()
 #ifdef _WIN32
 	if (NULL != m_hClientSendEvent)
 	{
-		ResetEvent(m_hClientSendEvent);
+		SetEvent(m_hClientSendEvent);
 		CloseHandle(m_hClientSendEvent);
 		m_hClientSendEvent = NULL;
 	}
@@ -119,24 +120,29 @@ bool IPC::IPCServer::read(std::string & msg)
 {
 	while (::WaitForSingleObject(m_hClientSendEvent, INFINITE))
 	{
+		if (true == m_bStop)
+		{
+			break;
+		}
+
 		size_t* size = (size_t*)m_pBuffer;
 		if (*size < 1)
 		{
 			std::cerr << "Read Failed" << std::endl;
-			return false;
+			break;
 		}
 		m_pBuffer = m_pBuffer + sizeof(size_t);
 
-		char* buffer = new char[*size];
+		char* buffer = new char[(*size)];
 		if (nullptr == buffer)
 		{
 			std::cerr << "Memory Allocation Failed." << std::endl;
-			return false;
+			break;
 		}
 
 		memcpy(buffer, m_pBuffer, *size);
 		msg = std::string(buffer);
-		m_pBuffer = m_pBuffer + *size;
+		m_pBuffer = m_pBuffer + (*size);
 
 		if (nullptr != buffer)
 		{

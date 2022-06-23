@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <string>
+#include <queue>
+#include <mutex>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -24,11 +26,14 @@ namespace IPC {
 		bool Initialize();
 		void finalize();
 
-	public:
-		bool read(std::string& msg);
 		bool write(const std::string& msg);
 
 	private:
+		bool read(std::string& msg);
+
+	private:
+		bool m_bStop;
+
 #ifdef _WIN32
 		HANDLE m_hMemory;
 		HANDLE m_hClientSendEvent = NULL;
